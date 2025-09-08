@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Minimalist Job Board",
+  "description": "A modern, high-performance job board application with a clean, minimalist user interface, designed to display and filter job listings fetched from a backend service.",
+  "requestFramePermissions": []
+}
