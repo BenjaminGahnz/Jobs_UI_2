@@ -1,73 +1,101 @@
-/// <reference types="vite/client" />
-
 import type { JobListing, FilterOptions, ActiveFilters } from '../types';
 
-// Use Vite's environment variables. VITE_API_BASE_URL will be set in Azure.
-// We provide a fallback for local development.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
-const SCRAPER_BASE_URL = import.meta.env.VITE_SCRAPER_BASE_URL || 'http://localhost:9000';
+import { mockJobs } from '../mockJobs';
 
 
+/*
+/// <reference types="vite/client" />
+const configPromise = (async () => {
+  // ... original config code
+})();
+async function getApiBaseUrl(): Promise<string> {
+  // ... original function
+}
+async function getScraperBaseUrl(): Promise<string> {
+  // ... original function
+}
 const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
-  const url = `${API_BASE_URL}${endpoint}`;
-  const response = await fetch(url, options);
-
-  if (!response.ok) {
-    let errorMessage = `Request failed with status: ${response.status}`;
-    try {
-      const errorData = await response.json();
-      errorMessage = errorData.detail || JSON.stringify(errorData);
-    } catch (e) {
-      const textError = await response.text();
-      if (textError) {
-        errorMessage = textError.substring(0, 500);
-      }
-    }
-    console.error("API Error Response:", errorMessage);
-    throw new Error(errorMessage);
-  }
-
-  try {
-    const text = await response.text();
-    return text ? JSON.parse(text) : {};
-  } catch (e) {
-    console.error("Failed to parse successful response as JSON.", e);
-    throw new Error("Received an invalid response from the server.");
-  }
+  // ... original function
 };
+*/
 
-export const fetchJobs = async (filters: ActiveFilters, page: number, favoritesFilter: { showOnly: boolean, favoriteIds: Set<number> }): Promise<{ jobs: JobListing[], totalPages: number }> => {
-  const params = new URLSearchParams();
-  params.append('page', page.toString());
-  params.append('limit', '12');
-  if (filters.search_query) params.append('search_query', filters.search_query);
-  if (filters.location) params.append('location', filters.location);
-  if (filters.company_name) params.append('company_name', filters.company_name);
+// A small helper function to simulate network delay
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-  let { jobs, totalPages } = await apiFetch(`/jobs?${params.toString()}`);
+export const fetchJobs = async (
+  filters: ActiveFilters,
+  page: number,
+  favoritesFilter: { showOnly: boolean, favoriteIds: Set<number> }
+): Promise<{ jobs: JobListing[], totalPages: number }> => {
+  
+  // Simulate network delay to see loading spinners
+  await sleep(500); 
 
+  console.log('Fetching MOCK jobs with filters:', filters, `Page: ${page}`);
+
+  let jobsToFilter = [...mockJobs];
+
+ 
   if (favoritesFilter.showOnly) {
-      jobs = jobs.filter((job: JobListing) => favoritesFilter.favoriteIds.has(job.id));
+    jobsToFilter = jobsToFilter.filter(job => favoritesFilter.favoriteIds.has(job.id));
   }
-  return { jobs, totalPages };
+
+
+  if (filters.search_query) {
+    const query = filters.search_query.toLowerCase();
+    jobsToFilter = jobsToFilter.filter(job => 
+      job.title.toLowerCase().includes(query) || 
+      (job.description && job.description.toLowerCase().includes(query))
+    );
+  }
+  if (filters.location) {
+    const query = filters.location.toLowerCase();
+    jobsToFilter = jobsToFilter.filter(job => 
+        (job.location.city && job.location.city.toLowerCase().includes(query)) ||
+        (job.location.country && job.location.country.toLowerCase().includes(query))
+    );
+  }
+  if (filters.company_name) {
+    const query = filters.company_name.toLowerCase();
+    jobsToFilter = jobsToFilter.filter(job => 
+      job.company && job.company.toLowerCase().includes(query)
+    );
+  }
+
+
+  const limit = 12;
+  const totalPages = Math.ceil(jobsToFilter.length / limit);
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + limit;
+
+  const paginatedJobs = jobsToFilter.slice(startIndex, endIndex);
+
+  return { jobs: paginatedJobs, totalPages };
 };
 
 export const fetchFilters = async (): Promise<FilterOptions> => {
-  return apiFetch('/jobs/filters');
+  await sleep(200); // Simulate short delay
+
+  
+  const locations = new Set<string>();
+  const company_names = new Set<string>();
+
+  mockJobs.forEach(job => {
+    if (job.location?.city) locations.add(job.location.city);
+    if (job.company) company_names.add(job.company);
+  });
+  
+  return {
+    locations: Array.from(locations).sort(),
+    company_names: Array.from(company_names).sort(),
+    employment_types: ['Full-time', 'Part-time', 'Contract'], // Hardcoded for example
+  };
 };
 
 export const startScraping = async (searchQuery: string): Promise<{ message: string }> => {
-  // This component is disabled in the UI, but if you re-enable it,
-  // it will point to the correct scraper URL.
-  const url = `${SCRAPER_BASE_URL}/scrape`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ search_query: searchQuery }),
-  });
-  if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Scraping failed');
-  }
-  return response.json();
+  await sleep(1500); // Simulate longer delay for scraping
+  console.log(`MOCK scraping for: "${searchQuery}"`);
+  
+  // Always return a success message
+  return { message: `Successfully completed mock scrape for "${searchQuery}".` };
 };
